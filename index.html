@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Klassrumsskärm</title>
+  <!-- Laddar in design och React direkt i webbläsaren -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #1e293b; }
+    .widget-box { position: absolute; background: rgba(255, 255, 255, 0.95); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; }
+    .widget-header { background: #f1f5f9; padding: 10px 15px; cursor: grab; font-weight: bold; display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; font-size: 14px;}
+    .widget-header:active { cursor: grabbing; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function App() {
+      // Skapar de fyra fönstren (schema, timer, trafikljus, arbetsform)
+      const [widgets, setWidgets] = useState([
+        { id: 'agenda', type: 'agenda', title: '📋 Dagens Agenda', x: 50, y: 80, w: 340 },
+        { id: 'timer', type: 'timer', title: '⏱️ Tidtagare', x: 420, y: 80, w: 320 },
+        { id: 'traffic', type: 'traffic', title: '🚦 Ljudnivå (Trafikljus)', x: 420, y: 320, w: 200 },
+        { id: 'work', type: 'work', title: '👥 Arbetsform', x: 50, y: 380, w: 340 }
+      ]);
+      
+      const [dragging, setDragging] = useState(null);
+      const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+      // Funktion för att flytta fönster med musen/pekdon
+      const startDrag = (e, id) => {
+        const widget = widgets.find(w => w.id === id);
+        setDragging(id);
+        setOffset({ x: e.clientX - widget.x, y: e.clientY - widget.y });
+        // Flyttar det klickade fönstret överst
+        const newWidgets = widgets.filter(w => w.id !== id);
+        setWidgets([...newWidgets, widget]);
+      };
+
+      const onDrag = (e) => {
+        if (!dragging) return;
+        setWidgets(widgets.map(w => w.id === dragging ? { ...w, x: Math.max(0, e.clientX - offset.x), y: Math.max(0, e.clientY - offset.y) } : w));
+      };
+
+      const renderContent = (type) => {
+        if(type === 'agenda') return (
+          <div className="p-4">
+            <ul className="space-y-3 font-medium text-slate-700">
+              <li className="flex items-center gap-3"><input type="checkbox" className="w-5 h-5 accent-blue-600"/> 1. Närvarokontroll</li>
+              <li className="flex items-center gap-3"><input type="checkbox" className="w-5 h-5 accent-blue-600"/> 2. Genomgång av regler</li>
+              <li className="flex items-center gap-3"><input type="checkbox" className="w-5 h-5 accent-blue-600"/> 3. Tyst läsning (10 min)</li>
+              <li className="flex items-center gap-3"><input type="checkbox" className="w-5 h-5 accent-blue-600"/> 4. Tala engelska (parövning)</li>
+              <li className="flex items-center gap-3"><input type="checkbox" className="w-5 h-5 accent-blue-600"/> 5. Sammanfattning</li>
+            </ul>
+          </div>
+        );
+        if(type === 'timer') return <TimerWidget />;
+        if(type === 'traffic') return <TrafficWidget />;
+        if(type === 'work') return (
+          <div className="p-4 grid grid-cols-2 gap-3 text-center text-sm">
+            <div className="p-3 border rounded-xl hover:bg-slate-50 cursor-pointer text-slate-600">🤫 <br/>Tystnad</div>
+            <div className="p-3 border rounded-xl bg-blue-50 text-blue-700 font-bold cursor-pointer border-blue-200">🗣️ <br/>Viskning</div>
+            <div className="p-3 border rounded-xl hover:bg-slate-50 cursor-pointer text-slate-600">👥 <br/>Fråga kompis</div>
+            <div className="p-3 border rounded-xl hover:bg-slate-50 cursor-pointer text-slate-600">🤝 <br/>Samarbete</div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="w-screen h-screen bg-[url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center"
+             onMouseMove={onDrag} onMouseUp={() => setDragging(null)} onMouseLeave={() => setDragging(null)}>
+          
+          {/* Toppmeny */}
+          <header className="bg-black/40 backdrop-blur-sm p-4 flex text-white shadow-md border-b border-white/10">
+            <h1 className="text-xl font-bold tracking-wide">Klassrumsskärm</h1>
+          </header>
+
+          {/* Ritar ut alla fönster */}
+          {widgets.map(w => (
+            <div key={w.id} className="widget-box select-none" style={{ left: w.x, top: w.y, width: w.w }}>
+              <div className="widget-header" onMouseDown={(e) => startDrag(e, w.id)}>
+                <span>{w.title}</span>
+              </div>
+              <div>{renderContent(w.type)}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function TimerWidget() {
+      const [time, setTime] = useState(600); // Startar på 10 minuter
+      const [running, setRunning] = useState(false);
+
+      useEffect(() => {
+        if (running && time > 0) {
+          const timer = setTimeout(() => setTime(time - 1), 1000);
+          return () => clearTimeout(timer);
+        }
+      }, [running, time]);
+
+      const m = Math.floor(time / 60).toString().padStart(2, '0');
+      const s = (time % 60).toString().padStart(2, '0');
+
+      return (
+        <div className="p-6 text-center bg-gradient-to-br from-red-600 to-rose-700 text-white">
+          <div className="text-7xl font-mono mb-6 font-bold tracking-tight drop-shadow-md">{m}:{s}</div>
+          <div className="flex gap-2 justify-center">
+            <button onClick={() => setRunning(!running)} className="px-6 py-2 bg-white text-red-600 hover:bg-slate-100 rounded-lg font-bold shadow-md transition">{running ? 'Pausa' : 'Starta'}</button>
+            <button onClick={() => { setTime(600); setRunning(false); }} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition">Återställ</button>
+          </div>
+        </div>
+      );
+    }
+
+    function TrafficWidget() {
+      const [color, setColor] = useState('green');
+      return (
+        <div className="p-5 flex flex-col items-center gap-4 bg-slate-900 rounded-b-xl border-t-4 border-slate-800">
+          <div onClick={() => setColor('red')} className={`w-16 h-16 rounded-full cursor-pointer transition-all ${color==='red'?'bg-red-500 shadow-[0_0_25px_rgba(239,68,68,0.9)]':'bg-red-950 opacity-40 hover:opacity-60'}`}></div>
+          <div onClick={() => setColor('yellow')} className={`w-16 h-16 rounded-full cursor-pointer transition-all ${color==='yellow'?'bg-yellow-400 shadow-[0_0_25px_rgba(250,204,21,0.9)]':'bg-yellow-950 opacity-40 hover:opacity-60'}`}></div>
+          <div onClick={() => setColor('green')} className={`w-16 h-16 rounded-full cursor-pointer transition-all ${color==='green'?'bg-green-500 shadow-[0_0_25px_rgba(34,197,94,0.9)]':'bg-green-950 opacity-40 hover:opacity-60'}`}></div>
+        </div>
+      );
+    }
+
+    // Starta applikationen
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
